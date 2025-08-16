@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday OS Bootloader</title>
+    <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+    <div class="boot-fast" id="boot-fast"></div>
+    <div class="boot-seq" id="boot-seq"></div>
+    <div id="nano-modal" class="nano-modal" style="display:none;">
+      <div class="nano-dialog">
+        <div class="nano-header">
+          <span id="nano-filename"></span>
+        </div>
+        <textarea id="nano-textarea" class="nano-textarea"></textarea>
+        <div class="nano-footer">
+          <span>^O: Save  ^X: Exit</span>
+          <span id="nano-status" class="nano-status"></span>
+        </div>
+      </div>
+    </div>
+    <script type="module">
+        const fastLines = [];
+        for (let i = 0; i < 120; i++) {
+            fastLines.push(
+                `0x${(Math.random()*0xFFFFFF|0).toString(16).padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}  ${(Math.random()*1000000|0).toString().padStart(6,'0')}`
+            );
+        }
+        for (let i = 0; i < 40; i++) {
+            fastLines.push(
+                `SYSLOG: ${['INIT','PROC','MEM','IO','NET','FS','KERN','USER','BIRTHDAY','CAKE','PARTY','CONFETTI'][Math.floor(Math.random()*12)]} ${(Math.random()*100000|0)}: ${['OK','WARN','FAIL','READY','DONE','SKIP'][Math.floor(Math.random()*6)]}`
+            );
+        }
+        for (let i = 0; i < 40; i++) {
+            fastLines.push(
+                `>>> ${(Math.random()+1).toString(36).substring(7)} ${(Math.random()+1).toString(36).substring(7)} ${(Math.random()+1).toString(36).substring(7)}`
+            );
+        }
+        fastLines.sort(() => Math.random() - 0.5);
+        const fastDiv = document.getElementById('boot-fast');
+        let fastIdx = 0;
+        function showFast() {
+            if (fastIdx < fastLines.length) {
+                fastDiv.innerHTML += fastLines[fastIdx] + '\n';
+                fastIdx++;
+                fastDiv.scrollTop = fastDiv.scrollHeight;
+                setTimeout(showFast, 18 + Math.random()*12);
+            } else {
+                setTimeout(() => {
+                    fastDiv.style.display = 'none';
+                    document.getElementById('boot-seq').style.display = '';
+                    showLine();
+                }, 400);
+            }
+        }
+
+        const lines = [
+            'Initializing OS...           <span class="ok">[  OK  ]</span>',
+            'Doing something...           <span class="ok">[  OK  ]</span>',
+            'Starting the party...        <span class="ok">[  OK  ]</span>',
+            'birthday time baby...        <span class="ok">[  OK  ]</span>',
+            '<span style="color:#fff">Welcome! Type `help` to begin.</span>'
+        ];
+        const seq = document.getElementById('boot-seq');
+        let i = 0;
+        function showLine() {
+            let output = 'Birthday OS Bootloader v1.0';
+            for (let j = 0; j < i; j++) {
+                output += '<br>' + lines[j];
+            }
+            output += '<br><span class="blinking">_</span>';
+            seq.innerHTML = output;
+            if (i < lines.length) {
+                i++;
+                setTimeout(showLine, 800);
+            } else {
+                setTimeout(enableInput, 800);
+            }
+        }
+
+        let userInput = '';
+        let prompt = '';
+        let inputEnabled = false;
+        let commandHistory = [];
+        let historyIndex = -1;
+        let cursorPos = 0;
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        }
+
+        function refreshCursor() {
+            const cursor = document.getElementById('input-cursor');
+            if (!cursor) return;
+            const before = escapeHtml(userInput.slice(0, cursorPos));
+            const after = escapeHtml(userInput.slice(cursorPos));
+            cursor.innerHTML = before + '<span id="caret" class="blinking" style="color:#33ff33">_</span>' + after;
+            window.scrollTo(0, document.body.scrollHeight);
+        }
+        async function enableInput() {
+            const oldCursors = document.querySelectorAll('.blinking');
+            oldCursors.forEach(c => c.parentNode && c.parentNode.removeChild(c));
+            const oldInputs = document.querySelectorAll('#input-cursor');
+            oldInputs.forEach(c => c.parentNode && c.parentNode.removeChild(c));
+            let cwd = '~';
+            try {
+                const mod = await loadCommands();
+                if (mod && mod.handleCommand) {
+                    let dir = mod.handleCommand('pwd');
+                    if (dir === '/') cwd = '~';
+                    else if (dir.startsWith('/home/')) cwd = '~' + dir.slice(5); 
+                    else cwd = dir;
+                }
+            } catch (e) {}
+            prompt = `<br><span style="color:#33ff33">birthday@os</span>:<span style="color:#fff">${cwd}$</span> `;
+            seq.innerHTML += prompt + '<span id="input-cursor"></span>';
+            userInput = '';
+            cursorPos = 0;
+            historyIndex = -1;
+            refreshCursor();
+            window.scrollTo(0, document.body.scrollHeight);
+            inputEnabled = true;
+        }
+        let commandsModule = null;
+        async function loadCommands() {
+            if (!commandsModule) {
+                commandsModule = await import('./commands.js');
+            }
+            return commandsModule;
+        }
+
+        async function handleKey(e) {
+            if (!inputEnabled) return;
+            const cursor = document.getElementById('input-cursor');
+            if (!cursor) return;
+            if (e.key.length === 1 && !e.ctrlKey && !e.metaKey) {
+                userInput = userInput.slice(0, cursorPos) + e.key + userInput.slice(cursorPos);
+                cursorPos = cursorPos + 1;
+                historyIndex = -1;
+            } else if (e.key === 'Backspace') {
+                if (cursorPos > 0) {
+                    userInput = userInput.slice(0, cursorPos - 1) + userInput.slice(cursorPos);
+                    cursorPos--;
+                }
+                historyIndex = -1;
+            } else if (e.key === 'Tab') {
+                // tab completeions where a night mare i cant spell that why lmaoo
+                e.preventDefault();
+                const mod = await loadCommands();
+                let completions = [];
+                if (!userInput.includes(' ')) {
+                    if (mod.getCompletions) {
+                        completions = mod.getCompletions(userInput);
+                    } else if (mod.default && mod.default.getCompletions) {
+                        completions = mod.default.getCompletions(userInput);
+                    }
+                    if (completions.length === 1) {
+                        userInput = completions[0] + ' ';
+                        cursorPos = userInput.length;
+                    } else if (completions.length > 1) {
+                        seq.innerHTML += '<br>' + completions.join('  ');
+                    }
+                } else {
+                    if (mod.getCompletions) {
+                        completions = mod.getCompletions(userInput);
+                    } else if (mod.default && mod.default.getCompletions) {
+                        completions = mod.default.getCompletions(userInput);
+                    }
+                    const inputParts = userInput.split(/\s+/);
+                    const partial = inputParts[inputParts.length - 1];
+                    if (completions.length === 1) {
+                        let completion = completions[0];
+                        if (!partial.includes('/')) {
+                            completion = completion.split('/').pop();
+                        }
+                        inputParts[inputParts.length - 1] = completion;
+                        userInput = inputParts.join(' ');
+                        cursorPos = userInput.length;
+                    } else if (completions.length > 1) {
+                        seq.innerHTML += '<br>' + completions.map(c => {
+                            if (!partial.includes('/')) return c.split('/').pop();
+                            return c;
+                        }).join('  ');
+                    }
+                }
+                refreshCursor();
+                window.scrollTo(0, document.body.scrollHeight);
+                return;
+            } else if (e.key === 'Enter') {
+                const blink = document.querySelector('.blinking');
+                if (blink) blink.parentNode && blink.parentNode.removeChild(blink);
+                cursor.outerHTML = userInput;
+                const cmd = userInput.trim();
+                if (cmd) {
+                    commandHistory.push(cmd);
+                }
+                if (cmd) {
+                    inputEnabled = false;
+                    try {
+                        const mod = await loadCommands();
+                        let result = mod.handleCommand(cmd);
+                        if (result && typeof result.then === 'function') result = await result;
+                        if (result) seq.innerHTML += '<br>' + result;
+                    } catch (err) {
+                        seq.innerHTML += '<br><span style="color:#f33">Command error</span>';
+                    }
+                }
+                inputEnabled = false;
+                setTimeout(enableInput, 10);
+                return;
+            } else if (e.key === 'ArrowUp') {
+                if (commandHistory.length > 0) {
+                    if (historyIndex === -1) historyIndex = commandHistory.length - 1;
+                    else if (historyIndex > 0) historyIndex--;
+                    userInput = commandHistory[historyIndex];
+                    cursorPos = userInput.length;
+                    refreshCursor();
+                }
+                return;
+            } else if (e.key === 'ArrowDown') {
+                if (commandHistory.length > 0 && historyIndex !== -1) {
+                    if (historyIndex < commandHistory.length - 1) {
+                        historyIndex++;
+                        userInput = commandHistory[historyIndex];
+                    } else {
+                        historyIndex = -1;
+                        userInput = '';
+                    }
+                    cursorPos = userInput.length;
+                    refreshCursor();
+                }
+                return;
+            } else if (e.key === 'ArrowLeft') {
+                if (cursorPos > 0) cursorPos--;
+                refreshCursor();
+                return;
+            } else if (e.key === 'ArrowRight') {
+                if (cursorPos < userInput.length) cursorPos++;
+                refreshCursor();
+                return;
+            } else {
+                 return;
+             }
+             refreshCursor();
+             window.scrollTo(0, document.body.scrollHeight);
+         }
+        document.addEventListener('keydown', handleKey);
+        import { nanoSaveFile } from './commands.js';
+        const nanoModal = document.getElementById('nano-modal');
+        const nanoTextarea = document.getElementById('nano-textarea');
+        const nanoFilename = document.getElementById('nano-filename');
+        const nanoStatus = document.getElementById('nano-status');
+        let nanoCurrentFile = '';
+        let nanoReturnToPrompt = false;
+
+        window.addEventListener('nano-open', (e) => {
+            nanoCurrentFile = e.detail.filename;
+            nanoFilename.textContent = 'nano ' + nanoCurrentFile;
+            nanoTextarea.value = e.detail.content || '';
+            nanoStatus.textContent = '';
+            nanoModal.style.display = 'flex';
+            nanoTextarea.focus();
+            inputEnabled = false;
+            nanoReturnToPrompt = false;
+        });
+
+        nanoTextarea.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && (e.key === 'x' || e.key === 'X')) {
+                nanoModal.style.display = 'none';
+                nanoStatus.textContent = '';
+                nanoReturnToPrompt = true;
+                setTimeout(() => { inputEnabled = true; enableInput(); }, 10);
+                e.preventDefault();
+            } else if (e.ctrlKey && (e.key === 'o' || e.key === 'O')) {
+                nanoSaveFile(nanoCurrentFile, nanoTextarea.value);
+                nanoStatus.textContent = 'Wrote ' + nanoCurrentFile;
+                setTimeout(() => { nanoStatus.textContent = ''; }, 1200);
+                e.preventDefault();
+            }
+        });
+        showFast();
+
+
+        const _asciiAnim = { raf: null, last: 0, acc: 0, frames: null, idx: 0, el: null, cfg: null };
+        function stopAsciiAnimateOnce(e) {
+            stopAsciiAnimate();
+        }
+        function stopAsciiAnimate() {
+            if (_asciiAnim.raf) {
+                cancelAnimationFrame(_asciiAnim.raf);
+                _asciiAnim.raf = null;
+            }
+            if (_asciiAnim.el && _asciiAnim.el.parentNode) {
+                _asciiAnim.el.parentNode.removeChild(_asciiAnim.el);
+                _asciiAnim.el = null;
+            }
+            if (_asciiAnim.overlay && _asciiAnim.overlay.parentNode) {
+                _asciiAnim.overlay.parentNode.removeChild(_asciiAnim.overlay);
+                _asciiAnim.overlay = null;
+            }
+            _asciiAnim.frames = null;
+            _asciiAnim.cfg = null;
+            window.removeEventListener('keydown', stopAsciiAnimateOnce);
+        }
+        // meow meow idk dont ask me. i cant read anymore my hands hurt and idk i took like 20 more mins than it should on this send help pls 
+        async function startAsciiAnimate(detail) {
+            try {
+                const resp = await fetch(detail.url);
+                const raw = await resp.json();
+
+                stopAsciiAnimate();
+                if (!raw || !raw.length) return;
+                _asciiAnim.frames = raw.map(f => (Array.isArray(f) ? f.join('\n') : String(f)));
+                if (!_asciiAnim.frames || !_asciiAnim.frames.length) return;
+            
+                if (!_asciiAnim.el) {
+                    _asciiAnim.el = document.createElement('pre');
+                    _asciiAnim.el.style.whiteSpace = 'pre';
+                    _asciiAnim.el.style.fontFamily = 'monospace';
+                    _asciiAnim.el.style.color = '#fff';
+                    _asciiAnim.el.style.margin = '8px 0';
+                    _asciiAnim.el.style.lineHeight = '1';
+                    _asciiAnim.el.style.fontVariantLigatures = 'none';
+                }
+
+                const overlay = document.createElement('div');
+                overlay.style.position = 'fixed';
+                overlay.style.top = '0';
+                overlay.style.left = '0';
+                overlay.style.width = '100vw';
+                overlay.style.height = '100vh';
+                overlay.style.background = 'rgba(0,0,0,0.95)';
+                overlay.style.display = 'flex';
+                overlay.style.alignItems = 'flex-start';
+                overlay.style.justifyContent = 'center';
+                overlay.style.padding = '24px';
+                overlay.style.boxSizing = 'border-box';
+                overlay.style.zIndex = '2000';
+                overlay.appendChild(_asciiAnim.el);
+                document.body.appendChild(overlay);
+                _asciiAnim.overlay = overlay;
+
+                _asciiAnim.el.textContent = _asciiAnim.frames[0] || '';
+                 _asciiAnim.idx = 0;
+                 _asciiAnim.last = performance.now();
+                 _asciiAnim.acc = 0;
+
+                 const fps = detail.fps && detail.fps > 0 ? detail.fps : 8;
+                const frameMs = 1000 / fps;
+                _asciiAnim.cfg = { frameMs, loop: detail.loop !== false, look: !!detail.look, shiftAmt: detail.shiftAmt || 6 };
+
+                function tick(now) {
+                    _asciiAnim.acc += now - _asciiAnim.last;
+                    _asciiAnim.last = now;
+                    const advance = Math.floor(_asciiAnim.acc / _asciiAnim.cfg.frameMs);
+                   if (advance > 0) {
+                       _asciiAnim.acc -= advance * _asciiAnim.cfg.frameMs;
+                        _asciiAnim.idx = (_asciiAnim.idx + advance) % _asciiAnim.frames.length;
+                       if (!_asciiAnim.cfg.loop && _asciiAnim.idx === 0) {
+                           stopAsciiAnimate();
+                            return;
+                     }
+
+                        let frame = _asciiAnim.frames[_asciiAnim.idx] || '';
+            
+          if (_asciiAnim.el) _asciiAnim.el.textContent = frame;
+          if (_asciiAnim.overlay && typeof _asciiAnim.overlay.scrollTop !== 'undefined') {
+          _asciiAnim.overlay.scrollTop = _asciiAnim.overlay.scrollHeight;
+          } else if (document.scrollingElement) {
+          document.scrollingElement.scrollTop = document.scrollingElement.scrollHeight;
+          }
+                    }
+                    _asciiAnim.raf = requestAnimationFrame(tick);
+                }
+                _asciiAnim.raf = requestAnimationFrame(tick);
+
+                window.addEventListener('keydown', stopAsciiAnimateOnce);
+            } catch (e) {
+                console.error('ascii animate error', e);
+                const seq = document.getElementById('boot-seq');
+                seq.innerHTML += '<br><span style="color:#f33">failed to load :(</span>';
+            }
+        }
+
+
+        window.addEventListener('ascii-animate', (ev) => {
+            const cfg = ev.detail || {};
+            cfg.url = cfg.url || './ascii-frames.json';
+            cfg.fps = cfg.fps || 8;
+            cfg.loop = cfg.loop !== undefined ? cfg.loop : true;
+            startAsciiAnimate(cfg);
+        });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background: #000;
+            color: #fff;
+            font-family: 'Fira Mono', 'Consolas', monospace;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+        .boot-seq {
+            white-space: pre;
+            font-size: 1em;
+            line-height: 1.5;
+            padding: 24px 0 0 24px;
+        }
+        .ok {
+            color: #33ff33;
+            font-weight: bold;
+        }
+        .blinking {
+            animation: blink 1s steps(1) infinite;
+        }
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+        .boot-fast {
+            white-space: pre;
+            color: #888;
+            font-family: inherit;
+            font-size: 1em;
+            padding: 24px 0 0 24px;
+            height: 100vh;
+            overflow: auto;
+        }
+
+        /* DID SOMEONE SAY VIM . WELL NO BECAUSE NANO */
+        .nano-modal {
+            display: none; 
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #111;
+            z-index: 1000;
+            align-items: stretch;
+            justify-content: stretch;
+        }
+        .nano-dialog {
+            background: #111;
+            border: none;
+            border-radius: 0;
+            width: 100vw;
+            height: 100vh;
+            min-width: 0;
+            min-height: 0;
+            box-shadow: none;
+            display: flex;
+            flex-direction: column;
+        }
+        .nano-header { padding: 8px 16px; color: #33ff33; font-family: inherit; font-size: 1.1em; border-bottom: 1px solid #222; }
+        .nano-textarea { flex: 1; background: #111; color: #fff; font-family: inherit; font-size: 1em; border: none; outline: none; resize: none; padding: 16px; }
+        .nano-footer { padding: 8px 16px; color: #33ff33; font-family: inherit; font-size: 0.95em; border-top: 1px solid #222; background: #181818; }
+        .nano-status { margin-left: 24px; color: #fff; }
+
+        .ascii-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.95); display: flex; align-items: flex-start; justify-content: center; padding: 24px; box-sizing: border-box; z-index: 2000; }
+        .ascii-pre { white-space: pre; font-family: monospace; color: #fff; margin: 8px 0; line-height: 1; font-variant-ligatures: none; }
